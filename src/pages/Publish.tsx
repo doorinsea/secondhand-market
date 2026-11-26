@@ -41,6 +41,7 @@ export function Publish() {
   const [price, setPrice] = useState('')
   const [category, setCategory] = useState<Category | null>(null)
   const [condition, setCondition] = useState<Condition>('like-new')
+  const [contact, setContact] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -89,6 +90,7 @@ export function Publish() {
         condition,
         images,
         cover: categoryMeta(category).emoji,
+        contact: contact.trim() || undefined,
       })
       show('发布成功，已经在首页啦')
       navigate('/')
@@ -247,6 +249,20 @@ export function Publish() {
               </button>
             ))}
           </div>
+        </section>
+
+        <section className="rounded-2xl bg-white p-4">
+          <h2 className="text-sm font-medium">联系方式（可选）</h2>
+          <input
+            value={contact}
+            onChange={(event) => setContact(event.target.value)}
+            maxLength={40}
+            placeholder="微信 / 手机号，选填"
+            className="mt-2 w-full rounded-xl bg-neutral-50 px-3 py-2.5 text-sm outline-none ring-1 ring-transparent focus:ring-black/10"
+          />
+          <p className="mt-1.5 text-[11px] leading-5 text-neutral-400">
+            会展示在商品详情页。建议优先用站内私信，成交和安全都更有保障。
+          </p>
         </section>
 
         {error && <p className="px-1 text-xs text-red-500">{error}</p>}

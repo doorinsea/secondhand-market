@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import { itemApi } from '../api'
-import type { CreateItemInput, Item } from '../types'
+import type { CreateItemInput, Item, ItemStatus } from '../types'
 
 interface ItemsContextValue {
   items: Item[]
@@ -18,6 +18,7 @@ interface ItemsContextValue {
   create: (input: CreateItemInput) => Promise<Item>
   remove: (id: string) => Promise<void>
   like: (id: string) => Promise<void>
+  updateStatus: (id: string, status: ItemStatus) => Promise<void>
 }
 
 const ItemsContext = createContext<ItemsContextValue | null>(null)
@@ -63,9 +64,18 @@ export function ItemsProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const updateStatus = useCallback(async (id: string, status: ItemStatus) => {
+    const updated = await itemApi.updateStatus(id, status)
+    if (updated) {
+      setItems((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, status: updated.status } : item)),
+      )
+    }
+  }, [])
+
   const value = useMemo(
-    () => ({ items, loading, error, refresh, create, remove, like }),
-    [items, loading, error, refresh, create, remove, like],
+    () => ({ items, loading, error, refresh, create, remove, like, updateStatus }),
+    [items, loading, error, refresh, create, remove, like, updateStatus],
   )
 
   return <ItemsContext.Provider value={value}>{children}</ItemsContext.Provider>

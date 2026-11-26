@@ -1,8 +1,9 @@
-import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { chatApi, sellerApi } from '../api'
 import { useToast } from '../components/Toast'
 import { useItems } from '../store/ItemsContext'
-import { categoryMeta, CONDITION_LABEL } from '../types'
+import { categoryMeta, CONDITION_LABEL, creditOf, type SellerProfile } from '../types'
 import { formatPrice, timeAgo } from '../utils'
 
 export function ItemDetail() {
@@ -11,8 +12,24 @@ export function ItemDetail() {
   const { show } = useToast()
   const { items, loading, like } = useItems()
   const [active, setActive] = useState(0)
+  const [seller, setSeller] = useState<SellerProfile | null>(null)
+  const [contacting, setContacting] = useState(false)
 
   const item = items.find((entry) => entry.id === id)
+
+  useEffect(() => {
+    if (!item?.sellerId) return
+    let alive = true
+    sellerApi
+      .get(item.sellerId)
+      .then((profile) => {
+        if (alive) setSeller(profile ?? null)
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [item?.sellerId])
 
   if (loading) {
     return (
@@ -40,6 +57,25 @@ export function ItemDetail() {
 
   const meta = categoryMeta(item.category)
   const images = item.images
+  const sold = item.status === 'sold'
+  const mine = item.sellerId === 'me'
+
+  async function handleContact() {
+    if (!item) return
+    if (mine) {
+      show('这是你自己发布的商品')
+      return
+    }
+    if (contacting) return
+    setContacting(true)
+    try {
+      const conversation = await chatApi.ensure(item.id)
+      navigate(`/chat/${conversation.id}`)
+    } catch {
+      show('暂时无法发起对话')
+      setContacting(false)
+    }
+  }
 
   return (
     <div className="flex min-h-dvh flex-col bg-white">
@@ -62,9 +98,24 @@ export function ItemDetail() {
             ))}
           </div>
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-[7rem]">
+          <div
+            className={`flex h-full w-full items-center justify-center text-[7rem] ${
+              sold ? 'opacity-60 grayscale' : ''
+            }`}
+          >
             {item.cover}
           </div>
+        )}
+
+        {sold && (
+          <>
+            <div className="absolute inset-0 bg-black/25" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="-rotate-12 rounded-full border-4 border-red-500 bg-white/85 px-7 py-2 text-2xl font-black tracking-widest text-red-500 shadow-xl">
+                已售出
+              </span>
+            </div>
+          </>
         )}
 
         <button
@@ -93,7 +144,11 @@ export function ItemDetail() {
       <div className="flex-1 space-y-5 px-4 py-4">
         <div>
           <div className="flex items-end gap-2">
-            <span className="text-2xl font-extrabold text-price">
+            <span
+              className={`text-2xl font-extrabold ${
+                sold ? 'text-neutral-400 line-through' : 'text-price'
+              }`}
+            >
               <span className="text-sm">¥</span>
               {formatPrice(item.price)}
             </span>
@@ -116,6 +171,11 @@ export function ItemDetail() {
           <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-neutral-600">
             {timeAgo(item.createdAt)}发布
           </span>
+          {sold && (
+            <span className="rounded-full bg-red-50 px-2.5 py-1 font-medium text-red-500">
+              已售出
+            </span>
+          )}
         </div>
 
         <section>
@@ -125,22 +185,32 @@ export function ItemDetail() {
           </p>
         </section>
 
-        <section className="flex items-center gap-3 rounded-2xl bg-neutral-50 p-3">
+        <Link
+          to={`/user/${item.sellerId}`}
+          className="flex items-center gap-3 rounded-2xl bg-neutral-50 p-3"
+        >
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-lg shadow-sm">
             {item.sellerAvatar}
           </div>
           <div className="flex-1">
             <p className="text-sm font-medium">{item.seller}</p>
-            <p className="text-[11px] text-neutral-400">个人卖家 · 信用良好</p>
+            <p className="text-[11px] text-neutral-400">
+              {seller
+                ? `${creditOf(seller.stats).level} · 已售 ${seller.stats.soldCount} 单`
+                : '个人卖家'}
+            </p>
           </div>
-          <button
-            type="button"
-            onClick={() => show('主页功能还没接，先看看商品吧')}
-            className="rounded-full border border-black/10 px-3 py-1.5 text-xs text-neutral-600"
-          >
+          <span className="rounded-full border border-black/10 px-3 py-1.5 text-xs text-neutral-600">
             查看主页
-          </button>
-        </section>
+          </span>
+        </Link>
+
+        {item.contact && (
+          <p className="text-[11px] leading-5 text-neutral-400">
+            卖家留下的联系方式：{item.contact}
+            <span className="text-neutral-400">（建议优先使用站内私信）</span>
+          </p>
+        )}
 
         <p className="pb-2 text-[11px] leading-5 text-neutral-400">
           提示：同城优先当面交易，验货后再确认。不要脱离平台转账。
@@ -150,28 +220,47 @@ export function ItemDetail() {
       <div className="sticky bottom-0 flex items-center gap-3 border-t border-black/5 bg-white/95 px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur">
         <div className="flex-1">
           <p className="text-[11px] text-neutral-400">到手价</p>
-          <p className="text-xl font-extrabold text-price">
+          <p
+            className={`text-xl font-extrabold ${
+              sold ? 'text-neutral-400 line-through' : 'text-price'
+            }`}
+          >
             <span className="text-xs">¥</span>
             {formatPrice(item.price)}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => show('已发送联系请求，卖家会收到通知（演示）')}
-          className="rounded-full border border-black/10 px-4 py-2.5 text-sm font-medium"
-        >
-          联系卖家
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            void like(item.id)
-            show('已加入想要，卖家会收到通知')
-          }}
-          className="rounded-full bg-brand px-6 py-2.5 text-sm font-semibold shadow-sm"
-        >
-          我想要
-        </button>
+
+        {!mine && (
+          <button
+            type="button"
+            onClick={() => void handleContact()}
+            disabled={contacting}
+            className="rounded-full border border-black/10 px-4 py-2.5 text-sm font-medium disabled:opacity-60"
+          >
+            {contacting ? '打开中…' : '联系卖家'}
+          </button>
+        )}
+
+        {sold ? (
+          <button
+            type="button"
+            disabled
+            className="rounded-full bg-neutral-200 px-6 py-2.5 text-sm font-semibold text-neutral-500"
+          >
+            已售出
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              void like(item.id)
+              show('已加入想要，卖家会收到通知')
+            }}
+            className="rounded-full bg-brand px-6 py-2.5 text-sm font-semibold shadow-sm"
+          >
+            我想要
+          </button>
+        )}
       </div>
     </div>
   )

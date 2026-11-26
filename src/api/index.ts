@@ -6,6 +6,7 @@ import type {
   ItemStatus,
   Message,
   Review,
+  ReviewInput,
   SellerProfile,
 } from '../types'
 import { mockChatApi, mockItemApi, mockSellerApi } from './mock'
@@ -56,10 +57,12 @@ export interface ChatApi {
 }
 
 export interface SellerApi {
-  /** 卖家资料与交易统计 */
+  /** 卖家资料与交易统计（“我”的统计会根据已售出商品和返评实时计算） */
   get(id: string): Promise<SellerProfile | undefined>
   /** 卖家收到的评价（信用等级的数据来源） */
   reviews(sellerId: string): Promise<Review[]>
+  /** 模拟买家返评：写入一条评价，信用分随之变化 */
+  addReview(input: ReviewInput): Promise<Review>
 }
 
 export const itemApi: ItemApi = mockItemApi
@@ -74,5 +77,6 @@ export type {
   ItemStatus,
   Message,
   Review,
+  ReviewInput,
   SellerProfile,
 }

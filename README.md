@@ -64,6 +64,10 @@ npm run preview
 | --- | --- |
 | ![详情](screenshots/detail.png) | ![我的](screenshots/mine.png) |
 
+| 评价后的信用 |
+| --- |
+| ![评价](screenshots/review.png) |
+
 ## 目录结构
 
 ```
@@ -112,6 +116,7 @@ interface ChatApi {
 interface SellerApi {
   get(id: string): Promise<SellerProfile | undefined>
   reviews(sellerId: string): Promise<Review[]>
+  addReview(input: ReviewInput): Promise<Review>   // 模拟买家返评，信用分随之更新
 }
 ```
 
@@ -132,6 +137,7 @@ interface SellerApi {
 | POST | `/api/conversations/:id/read` | 清空未读 |
 | GET | `/api/users/:id` | 卖家资料与统计 |
 | GET | `/api/users/:id/reviews` | 卖家收到的评价 |
+| POST | `/api/users/:id/reviews` | 提交买家返评（演示用，body: `{ itemId, itemTitle, rating, content }`） |
 
 ### 数据结构
 
@@ -175,6 +181,7 @@ interface SellerProfile {
 }
 
 interface Review { /* 买家对卖家的返评：itemId、fromName、rating、content、createdAt */ }
+interface ReviewInput { /* itemId、itemTitle、rating、content、fromName?、fromAvatar? */ }
 interface Conversation { /* itemId、buyerId、sellerId、双方名称头像、unread、updatedAt */ }
 interface Message { /* conversationId、fromId、text、createdAt */ }
 ```
@@ -194,6 +201,8 @@ interface Message { /* conversationId、fromId、text、createdAt */ }
 | 信誉良好 | 信用分 ≥ 70 |
 | 新人 | 其余 |
 
+“我”的统计会根据已售出商品数量和买家返评实时计算：在「我的」里把商品标记售出，再点「模拟买家评价」提交一条评价，个人主页的信用分和等级会立即变化。
+
 ### 接真实后端的方式
 
 1. 在 `src/api/index.ts` 里加一个 http 实现，按三个接口的签名逐个实现；
@@ -203,7 +212,7 @@ interface Message { /* conversationId、fromId、text、createdAt */ }
 
 ## 当前数据说明
 
-- 商品存在 `localStorage` 的 `secondhand.items.v2`，会话在 `secondhand.conversations.v1`，消息在 `secondhand.messages.v1`。
+- 商品存在 `localStorage` 的 `secondhand.items.v2`，会话在 `secondhand.conversations.v1`，消息在 `secondhand.messages.v1`，买家返评在 `secondhand.reviews.v1`。
 - 首次打开会写入 13 件 seed 商品、3 条演示会话和对应消息。
 - 想重置数据：浏览器控制台执行 `localStorage.clear()` 后刷新。
 
@@ -213,7 +222,7 @@ interface Message { /* conversationId、fromId、text、createdAt */ }
 
 ## 已实现 / 未实现
 
-已实现：分类浏览、搜索、商品详情、发布（多图 + 压缩 + 可选联系方式）、删除、想要 +1、标记售出 / 重新上架、已售出盖章、站内私信（会话列表 / 聊天页 / 快捷话术 / 未读红点）、个人主页（信用等级 / 统计 / 在售 / 评价）、空状态、加载态、错误态、移动端适配。
+已实现：分类浏览、搜索、商品详情、发布（多图 + 压缩 + 可选联系方式）、删除、想要 +1、标记售出 / 重新上架、已售出盖章、站内私信（会话列表 / 聊天页 / 快捷话术 / 未读红点）、个人主页（信用等级 / 统计 / 在售 / 评价）、售出 → 模拟买家返评 → 信用分实时更新、空状态、加载态、错误态、移动端适配。
 
 未实现（下一步）：登录注册、图片上传到服务端、真实即时通讯（WebSocket）、订单与支付、收藏、举报拉黑、分页/上拉加载、卖家主页编辑、评价提交入口。
 

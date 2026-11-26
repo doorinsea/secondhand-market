@@ -146,6 +146,15 @@ export interface Review {
   createdAt: number
 }
 
+export interface ReviewInput {
+  itemId: string
+  itemTitle: string
+  rating: number
+  content: string
+  fromName?: string
+  fromAvatar?: string
+}
+
 export interface Conversation {
   id: string
   itemId: string

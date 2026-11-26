@@ -5,6 +5,7 @@ import type {
   ItemStatus,
   Message,
   Review,
+  ReviewInput,
   SellerProfile,
 } from '../types'
 import { seedConversations, seedMessages } from '../data/chat'
@@ -14,6 +15,7 @@ import { sellerProfiles, sellerReviews } from '../data/sellers'
 const ITEMS_KEY = 'secondhand.items.v2'
 const CONVOS_KEY = 'secondhand.conversations.v1'
 const MESSAGES_KEY = 'secondhand.messages.v1'
+const REVIEWS_KEY = 'secondhand.reviews.v1'
 
 const delay = (ms = 100) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
@@ -280,16 +282,78 @@ export const mockChatApi = {
   },
 }
 
+function loadLocalReviews(): Review[] {
+  return load<Review>(REVIEWS_KEY, [])
+}
+
+function saveLocalReviews(reviews: Review[]) {
+  save(REVIEWS_KEY, reviews)
+}
+
+/** “我”的信用统计由已售出商品 + 本地返评实时计算 */
+function statsOfMe(): SellerProfile['stats'] {
+  const local = loadLocalReviews().filter((review) => review.toSellerId === 'me')
+  const soldCount = loadItems().filter(
+    (item) => item.sellerId === 'me' && item.status === 'sold',
+  ).length
+  const base = sellerProfiles.find((seller) => seller.id === 'me')
+
+  if (!base) return { soldCount, reviewCount: 0, goodRate: 1, avgRating: 5, responseMinutes: 30 }
+
+  if (local.length === 0) {
+    return { ...base.stats, soldCount }
+  }
+
+  const good = local.filter((review) => review.rating >= 4).length
+  return {
+    soldCount,
+    reviewCount: local.length,
+    goodRate: good / local.length,
+    avgRating: local.reduce((sum, review) => sum + review.rating, 0) / local.length,
+    responseMinutes: base.stats.responseMinutes,
+  }
+}
+
 export const mockSellerApi = {
   async get(id: string): Promise<SellerProfile | undefined> {
     await delay(60)
-    return sellerProfiles.find((seller) => seller.id === id)
+    const profile = sellerProfiles.find((seller) => seller.id === id)
+    if (!profile) return undefined
+    if (id !== 'me') return profile
+    return { ...profile, stats: statsOfMe() }
   },
 
   async reviews(sellerId: string): Promise<Review[]> {
     await delay(80)
-    return sellerReviews
+    return [...loadLocalReviews(), ...sellerReviews]
       .filter((review) => review.toSellerId === sellerId)
       .sort((a, b) => b.createdAt - a.createdAt)
+  },
+
+  async addReview(input: ReviewInput): Promise<Review> {
+    await delay(150)
+    const buyers = [
+      { name: '小林', avatar: '🐼' },
+      { name: '阿杰', avatar: '🐨' },
+      { name: 'Momo', avatar: '🐱' },
+      { name: '大鹏', avatar: '🦅' },
+    ]
+    const buyer = buyers[Math.floor(Math.random() * buyers.length)]
+    const review: Review = {
+      id: `review-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      itemId: input.itemId,
+      itemTitle: input.itemTitle,
+      fromName: input.fromName ?? buyer.name,
+      fromAvatar: input.fromAvatar ?? buyer.avatar,
+      toSellerId: 'me',
+      rating: input.rating,
+      content: input.content.trim(),
+      createdAt: Date.now(),
+    }
+
+    const reviews = loadLocalReviews()
+    reviews.unshift(review)
+    saveLocalReviews(reviews)
+    return review
   },
 }

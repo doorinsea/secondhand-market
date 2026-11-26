@@ -14,6 +14,18 @@ npm run dev
 
 打开 http://localhost:5173
 
+### Windows 一键预览（构建版，不需要 npm run dev）
+
+- 双击项目根目录的 `打开预览.cmd`：会自动检查 `dist/`、启动本地服务并打开浏览器。
+- 或者在 Windows 终端里执行：
+
+```bat
+cd secondhand-market
+node serve.mjs --open
+```
+
+`npm run preview:open` 效果相同。默认端口 4173，端口被占用时可以用 `set PORT=4174` 换一个。停止服务按 `Ctrl+C`。
+
 生产构建：
 
 ```bash

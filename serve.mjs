@@ -1,3 +1,4 @@
+import { exec } from 'node:child_process'
 import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { extname, join, normalize } from 'node:path'
@@ -20,7 +21,7 @@ const mime = {
   '.woff2': 'font/woff2',
 }
 
-createServer(async (request, response) => {
+const server = createServer(async (request, response) => {
   try {
     const url = new URL(request.url ?? '/', 'http://localhost')
     let pathname = decodeURIComponent(url.pathname)
@@ -49,6 +50,30 @@ createServer(async (request, response) => {
   } catch {
     response.writeHead(500).end('Internal Server Error')
   }
-}).listen(port, '127.0.0.1', () => {
-  console.log(`preview: http://127.0.0.1:${port}`)
+})
+
+server.on('error', (error) => {
+  if (error.code === 'EADDRINUSE') {
+    console.error(`端口 ${port} 已被占用。换个端口：set PORT=4174 && node serve.mjs --open`)
+    process.exit(1)
+  }
+  throw error
+})
+
+server.listen(port, '127.0.0.1', () => {
+  const url = `http://127.0.0.1:${port}`
+  console.log(`preview: ${url}`)
+  if (process.argv.includes('--open')) {
+    const command =
+      process.platform === 'win32'
+        ? `start "" "${url}"`
+        : process.platform === 'darwin'
+          ? `open "${url}"`
+          : `xdg-open "${url}"`
+    try {
+      exec(command, () => {})
+    } catch {
+      console.log(`没能自动打开浏览器，请手动访问：${url}`)
+    }
+  }
 })

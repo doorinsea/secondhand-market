@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "preview:open": "node serve.mjs --open"
   },
   "dependencies": {
     "react": "^19.0.0",

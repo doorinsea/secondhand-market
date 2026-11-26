@@ -1,5 +1,7 @@
 node_modules/
 dist/
 .npm-cache/
+preview-package/
+*.zip
 *.log
 .DS_Store
